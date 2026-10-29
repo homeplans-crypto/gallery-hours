@@ -1,6 +1,6 @@
 # Gallery Hours
 
-A picture frame for the iPad: public-domain art from the Art Institute of Chicago, paired with your Spotify music, in two rooms — **Calm** and **Jazz Club** — with a sleep timer that fades the room to black and stops the music.
+A picture frame for the iPad: public-domain art from the Cleveland Museum of Art (with the Art Institute of Chicago as a backup), paired with your Spotify music, in two rooms — **Calm** and **Jazz Club** — with a sleep timer that fades the room to black and stops the music.
 
 Live page: https://homeplans-crypto.github.io/gallery-hours/
 

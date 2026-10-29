@@ -364,7 +364,7 @@
         <option value="300">Every 5 minutes</option>
         <option value="900">Every 15 minutes</option>
       </select>
-      <p class="help">The art comes from the Art Institute of Chicago’s public-domain collection.</p>
+      <p class="help">The art comes from the public-domain collections of the Cleveland Museum of Art and the Art Institute of Chicago.</p>
     </section>
 
     <div class="row end">
@@ -401,18 +401,19 @@
   const ROOMS = {
     calm: {
       name: 'Calm',
-      art: ['Hiroshige', 'Hokusai', 'seascape', 'river landscape', 'moonlight', 'snow landscape',
+      art: ['Hiroshige', 'Hokusai', 'seascape', 'river', 'moonlight', 'snow',
             'garden', 'clouds', 'lake', 'meadow', 'harbor', 'mist'],
       fallbackSearch: 'calm ambient sleep'
     },
     jazz: {
       name: 'Jazz Club',
-      art: ['night cafe', 'cabaret', 'dance hall', 'musician', 'jazz', 'street at night',
-            'Toulouse-Lautrec', 'bar', 'nocturne', 'theater', 'Paris night', 'saxophone'],
+      art: ['night', 'cafe', 'cabaret', 'dance', 'musician', 'jazz', 'Harlem',
+            'Toulouse-Lautrec', 'nocturne', 'theater', 'Paris', 'evening'],
       fallbackSearch: 'late night jazz club'
     }
   };
-  const ART_TYPES = new Set(['Painting', 'Print', 'Drawing and Watercolor', 'Photograph']);
+  // Museum object types worth framing (each museum names them a little differently)
+  const ART_TYPES = new Set(['Painting', 'Print', 'Drawing', 'Drawing and Watercolor', 'Photograph']);
 
   const blankRooms = () => ({ calm: { uri: '', name: '' }, jazz: { uri: '', name: '' } });
   let cfg = Object.assign({ clientId: '', cadence: 'song' }, store.get('cfg', {}));
@@ -434,6 +435,7 @@
       queries: { calm: [], jazz: [] },
       fetching: { calm: null, jazz: null },
       iiif: 'https://www.artic.edu/iiif/2',
+      source: 0, totals: {},
       front: 0, timer: null
     }
   };
@@ -646,32 +648,83 @@
     return a;
   }
 
-  async function fetchArt(room) {
-    const A = S.art;
-    if (!A.queries[room].length) { A.queries[room] = shuffle([...ROOMS[room].art]); A.used[room].clear(); }
-    const q = A.queries[room].shift();
+  // Each source returns artworks in one shape: { id, title, artist, date, ratio, urls: [best, fallback] }
+  async function getJson(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  // Random starting point within a search's results, so repeat visits see different works
+  function skipFor(key, page) {
+    const total = S.art.totals[key] || 0;
+    return total > page ? Math.floor(Math.random() * (Math.min(total, 500) - page)) : 0;
+  }
+
+  // Cleveland Museum of Art Open Access (CC0): direct image links, large print-size files
+  async function fromCleveland(q) {
+    const key = 'cma:' + q;
+    const p = new URLSearchParams({ q, cc0: '1', has_image: '1', limit: '40', skip: String(skipFor(key, 40)) });
+    const j = await getJson('https://openaccess-api.clevelandart.org/api/artworks/?' + p);
+    if (j.info && j.info.total) S.art.totals[key] = j.info.total;
+    const wantPx = Math.max(innerWidth, innerHeight) * (window.devicePixelRatio || 1);
+    return (j.data || [])
+      .filter(d => d.images && d.images.web && d.images.web.url)
+      .filter(d => !d.type || ART_TYPES.has(d.type))
+      .map(d => {
+        const web = d.images.web, print = d.images.print;
+        const usePrint = print && print.url && wantPx > (web.width || 0) * 1.15 && (+print.filesize || 0) < 9e6;
+        const who = d.creators && d.creators[0] && d.creators[0].description;
+        return {
+          id: 'cma:' + d.id,
+          title: d.title || 'Untitled',
+          artist: who ? who.replace(/\s*\(.*\)\s*$/, '') : '',
+          date: d.creation_date || '',
+          ratio: web.width && web.height ? web.width / web.height : 0,
+          urls: usePrint ? [print.url, web.url] : [web.url]
+        };
+      });
+  }
+
+  // Art Institute of Chicago (public domain): the backup source
+  async function fromChicago(q) {
     const params = {
       q,
       query: { bool: { filter: [{ term: { is_public_domain: true } }] } },
       fields: ['id', 'title', 'artist_title', 'date_display', 'image_id', 'thumbnail', 'artwork_type_title'],
       limit: 50
     };
-    const r = await fetch('https://api.artic.edu/api/v1/artworks/search?params=' + encodeURIComponent(JSON.stringify(params)));
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    if (j.config && j.config.iiif_url) A.iiif = j.config.iiif_url;
-    const pool = A.pools[room];
-    const have = new Set(pool.map(p => p.id));
-    const items = (j.data || [])
-      .filter(d => d.image_id && !A.used[room].has(d.id) && !have.has(d.id))
+    const j = await getJson('https://api.artic.edu/api/v1/artworks/search?params=' + encodeURIComponent(JSON.stringify(params)));
+    if (j.config && j.config.iiif_url) S.art.iiif = j.config.iiif_url;
+    return (j.data || [])
+      .filter(d => d.image_id)
       .filter(d => !d.artwork_type_title || ART_TYPES.has(d.artwork_type_title))
       .map(d => ({
-        id: d.id, title: d.title || 'Untitled', artist: d.artist_title || '', date: d.date_display || '',
-        image: d.image_id,
-        ratio: d.thumbnail && d.thumbnail.width && d.thumbnail.height ? d.thumbnail.width / d.thumbnail.height : 0
-      }))
-      .filter(d => !d.ratio || (d.ratio > 0.45 && d.ratio < 2.6));
-    pool.push(...shuffle(items));
+        id: 'aic:' + d.id,
+        title: d.title || 'Untitled', artist: d.artist_title || '', date: d.date_display || '',
+        ratio: d.thumbnail && d.thumbnail.width && d.thumbnail.height ? d.thumbnail.width / d.thumbnail.height : 0,
+        urls: [1686, 843].map(w => `${S.art.iiif}/${d.image_id}/full/${w},/0/default.jpg`)
+      }));
+  }
+
+  const SOURCES = [fromCleveland, fromChicago];
+
+  async function fetchArt(room) {
+    const A = S.art;
+    if (!A.queries[room].length) { A.queries[room] = shuffle([...ROOMS[room].art]); A.used[room].clear(); }
+    const q = A.queries[room].shift();
+    let items = null, lastErr = null;
+    // Start with whichever museum answered last time; fall back to the other
+    for (let k = 0; k < SOURCES.length && !items; k++) {
+      const i = (A.source + k) % SOURCES.length;
+      try { items = await SOURCES[i](q); A.source = i; } catch (e) { lastErr = e; }
+    }
+    if (!items) throw lastErr || new Error('No art source answered');
+    const pool = A.pools[room];
+    const have = new Set(pool.map(p => p.id));
+    pool.push(...shuffle(items
+      .filter(d => !A.used[room].has(d.id) && !have.has(d.id))
+      .filter(d => !d.ratio || (d.ratio > 0.45 && d.ratio < 2.6))));
   }
 
   async function ensurePool(room) {
@@ -707,19 +760,28 @@
     const room = S.room;
     if (!room || S.asleep) return;
     const seq = ++artSeq;
-    for (let tries = 0; tries < 4; tries++) {
+    for (let tries = 0; tries < 5; tries++) {
       try { await ensurePool(room); }
-      catch (e) { if (seq === artSeq) { notice('The artwork couldn’t load. Check your connection.'); scheduleArt(); } return; }
+      catch (e) {
+        if (seq === artSeq) { notice('The museum art search isn’t answering (' + e.message + '). The frame will try again in a minute.'); retryArtSoon(); }
+        return;
+      }
       const item = pickNext(room);
-      if (!item) return;
+      if (!item) { if (seq === artSeq) { notice('No artwork found for this room. The frame will try again in a minute.'); retryArtSoon(); } return; }
       S.art.used[room].add(item.id);
       let im = null;
-      for (const w of [1686, 843]) {
-        try { im = await loadImg(`${S.art.iiif}/${item.image}/full/${w},/0/default.jpg`); break; } catch (e) {}
+      for (const url of item.urls) {
+        try { im = await loadImg(url); break; } catch (e) {}
       }
       if (seq !== artSeq || room !== S.room) return;
       if (im) { showArt(im, item); ensurePool(room).catch(() => {}); return; }
     }
+    if (seq === artSeq) { notice('Artwork images aren’t loading right now. The frame will try again in a minute.'); retryArtSoon(); }
+  }
+
+  function retryArtSoon() {
+    clearTimeout(S.art.timer);
+    S.art.timer = setTimeout(() => nextArt(), 60 * 1000);
   }
 
   function showArt(im, item) {
