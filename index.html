@@ -1,0 +1,1119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Gallery Hours</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- One link per family, so one unavailable family can't block the others -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Text:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@400..800&display=swap">
+<style>
+  :root {
+    /* Calm room */
+    --spruce: #1d2926;
+    --celadon: #c3d3ca;
+    --sage: #8fb3a3;
+    /* Jazz Club room */
+    --oxblood: #2a1115;
+    --brass: #c09a5b;
+    --smoke: #eadfca;
+
+    --mat: var(--spruce);
+    --ink: var(--celadon);
+    --accent: var(--sage);
+
+    --serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+    --deco: 'Big Shoulders Display', 'Big Shoulders', 'Avenir Next Condensed', 'Arial Narrow', sans-serif;
+    --ui: 'Big Shoulders Text', 'Big Shoulders', 'Avenir Next Condensed', 'Arial Narrow', sans-serif;
+
+    /* A framer's bottom-weighted mat: the labels live in the deeper bottom margin */
+    --pad: 5vmin;
+    --pad-bottom: 15vmin;
+    --fade: 2400ms;
+    --dim: 1;
+  }
+  body.room-jazz { --mat: var(--oxblood); --ink: var(--smoke); --accent: var(--brass); }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: #000; color: var(--ink);
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+  }
+  body { font-family: var(--ui); }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  button:disabled { opacity: .35; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  [hidden] { display: none !important; }
+  svg { display: block; }
+
+  /* ---------- Lobby: two doors ---------- */
+  #lobby {
+    position: fixed; inset: 0;
+    display: grid; grid-template-columns: 1fr 1fr;
+  }
+  @media (orientation: portrait) {
+    #lobby { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  }
+  /* Status and actions sit over the Calm door, clear of the club's brass frame */
+  .lobby-bar {
+    position: absolute; top: 0; left: 0; right: 50%; z-index: 2;
+    display: flex; flex-direction: column; align-items: flex-start; gap: .8rem;
+    padding: calc(env(safe-area-inset-top) + 4vmin) 9vmin 0;
+    color: rgba(255, 255, 255, .8);
+  }
+  @media (orientation: portrait) { .lobby-bar { right: 0; } }
+  #status { margin: 0; font-family: var(--serif); font-size: 1.05rem; line-height: 1.4; max-width: 34rem; }
+  .lobby-actions { display: flex; gap: 1.6rem; flex-shrink: 0; }
+  .text-btn {
+    font-family: var(--ui); font-weight: 600; font-size: 1.15rem;
+    padding: .3rem 0; border-bottom: 1px solid currentColor;
+  }
+  .door {
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start;
+    padding: 9vmin; text-align: left;
+  }
+  .door-calm { background: var(--spruce); color: var(--celadon); }
+  .door-jazz { background: var(--oxblood); color: var(--smoke); }
+  .door-name { display: block; line-height: .95; }
+  .door-calm .door-name {
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: clamp(3.2rem, 10vmin, 7.5rem); letter-spacing: -.01em;
+  }
+  .door-jazz .door-name {
+    font-family: var(--deco); font-weight: 700;
+    font-size: clamp(3.6rem, 12.5vmin, 9.5rem); line-height: .86;
+  }
+  /* Deco double rule: the one ornamental flourish, reserved for the club */
+  .door-jazz::before {
+    content: ""; position: absolute; inset: 3.4vmin;
+    border: 1px solid var(--brass);
+    box-shadow: inset 0 0 0 5px var(--oxblood), inset 0 0 0 6px rgba(192, 154, 91, .45);
+    pointer-events: none;
+  }
+  .door-sub { display: block; margin-top: 1.2rem; font-size: 1.15rem; opacity: .72; max-width: 28rem; }
+  .door-jazz .door-sub { color: var(--brass); opacity: 1; }
+
+  /* ---------- Stage: the framed artwork ---------- */
+  #stage {
+    position: fixed; inset: 0;
+    background: var(--mat);
+    transition: background-color 1.4s ease;
+  }
+  #window {
+    position: absolute;
+    left: var(--pad); right: var(--pad); top: var(--pad); bottom: var(--pad-bottom);
+    filter: brightness(var(--dim));
+    transition: filter 1.2s linear;
+  }
+  .layer { position: absolute; inset: 0; opacity: 0; transition: opacity var(--fade) ease; }
+  .layer.on { opacity: 1; }
+  .layer img {
+    position: absolute; display: block;
+    /* a light bevel edge where the mat is cut, and the mat's shadow on the print */
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .16), 0 .8vmin 2.6vmin rgba(0, 0, 0, .5);
+  }
+  #margin {
+    position: absolute; left: var(--pad); right: var(--pad); bottom: 0;
+    height: var(--pad-bottom);
+    padding-bottom: env(safe-area-inset-bottom);
+    display: flex; justify-content: space-between; align-items: center; gap: 4vmin;
+    filter: brightness(var(--dim));
+    transition: filter 1.2s linear;
+  }
+
+  /* Museum wall label */
+  .wall {
+    max-width: 38%; margin-left: auto;
+    font-family: var(--serif); font-size: clamp(.85rem, 1.7vmin, 1.05rem); line-height: 1.4;
+    opacity: .82;
+  }
+  .wall-title { font-style: italic; }
+  .wall-title, .wall-meta {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+
+  /* Now playing, Calm: a quiet line of type */
+  .np { max-width: 56%; min-width: 0; }
+  .np:empty { display: none; }
+  .np-title {
+    font-family: var(--serif); font-style: italic; font-size: clamp(1.1rem, 2.4vmin, 1.6rem); line-height: 1.2;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .np-artist { font-family: var(--serif); font-size: clamp(.9rem, 1.8vmin, 1.1rem); opacity: .72; margin-top: .25rem; }
+  .np-sleep { font-family: var(--ui); font-size: 1rem; color: var(--accent); margin-top: .45rem; }
+
+  /* Now playing, Jazz Club: the bandstand card */
+  body.room-jazz .np.has-track {
+    position: relative;
+    padding: 1.1vmin 2.4vmin 1.3vmin;
+    border: 1px solid var(--brass);
+    outline: 1px solid rgba(192, 154, 91, .4); outline-offset: 4px;
+  }
+  body.room-jazz .np.has-track::before,
+  body.room-jazz .np.has-track::after {
+    content: ""; position: absolute; width: 8px; height: 8px;
+    background: var(--brass); transform: rotate(45deg);
+  }
+  body.room-jazz .np.has-track::before { top: -5px; left: -5px; }
+  body.room-jazz .np.has-track::after { bottom: -5px; right: -5px; }
+  body.room-jazz .np-title {
+    font-family: var(--deco); font-style: normal; font-weight: 700;
+    font-size: clamp(1.5rem, 3.9vmin, 2.8rem); line-height: .95; letter-spacing: .005em;
+  }
+  body.room-jazz .np-artist { font-family: var(--ui); font-weight: 600; color: var(--brass); opacity: 1; font-size: clamp(1rem, 2vmin, 1.25rem); }
+
+  /* Asleep: the room goes dark, then the iPad's own Auto-Lock turns the screen off */
+  body.asleep #stage { background-color: #000; transition: background-color 12s ease; }
+  body.asleep #window, body.asleep #margin { filter: brightness(0); transition: filter 12s ease; }
+
+  /* ---------- Controls ---------- */
+  #controls {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    min-height: var(--pad-bottom);
+    padding: 2vmin var(--pad) calc(2vmin + env(safe-area-inset-bottom));
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 2.2rem;
+    background: var(--mat);
+    background: color-mix(in srgb, var(--mat) 95%, transparent);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    box-shadow: 0 -1px 0 color-mix(in srgb, var(--ink) 18%, transparent);
+    transform: translateY(105%);
+    transition: transform .35s ease;
+    font-size: 1.15rem;
+  }
+  #controls.show { transform: none; }
+  .group { display: flex; align-items: center; gap: .4rem; }
+  .rooms button, .sleep button {
+    padding: .45rem .7rem; min-height: 44px;
+    border-bottom: 2px solid transparent;
+    opacity: .7;
+  }
+  .rooms button[aria-pressed="true"], .sleep button[aria-pressed="true"] {
+    opacity: 1; color: var(--accent); border-bottom-color: var(--accent);
+  }
+  .sleep-label { margin-right: .3rem; opacity: .7; }
+  .icon-btn { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; }
+  .icon-btn svg { width: 26px; height: 26px; }
+  #play { width: 56px; height: 56px; border: 1px solid color-mix(in srgb, var(--ink) 40%, transparent); }
+  #play svg { width: 28px; height: 28px; }
+
+  /* ---------- Notice ---------- */
+  #notice {
+    position: fixed; z-index: 5;
+    top: calc(env(safe-area-inset-top) + 4vmin); left: 50%; transform: translateX(-50%);
+    width: max-content; max-width: min(36rem, 90vw);
+    padding: .85rem 1.2rem;
+    background: rgba(0, 0, 0, .82); color: #f1ece2;
+    border-left: 3px solid var(--accent);
+    font-family: var(--serif); font-size: 1.05rem; line-height: 1.4;
+    opacity: 0; transition: opacity .3s ease; pointer-events: none;
+  }
+  #notice.show { opacity: 1; }
+
+  /* ---------- Settings ---------- */
+  dialog {
+    border: 0; padding: 0;
+    background: var(--mat); color: var(--ink);
+    width: min(40rem, 92vw); max-height: 88vh; overflow: auto;
+    box-shadow: 0 2rem 5rem rgba(0, 0, 0, .65);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .62); }
+  #settings-form { padding: 2rem 2.2rem 2.2rem; display: flex; flex-direction: column; gap: 1.8rem; }
+  dialog h2 { margin: 0; font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 2.1rem; line-height: 1.1; }
+  dialog h3 { margin: 0 0 .3rem; font-family: var(--ui); font-weight: 600; font-size: 1.3rem; }
+  dialog section { display: flex; flex-direction: column; gap: .5rem; }
+  dialog label { font-size: 1.1rem; margin-top: .55rem; }
+  dialog input, dialog select {
+    font: inherit; font-size: 1.05rem; color: var(--ink);
+    width: 100%; min-height: 44px; padding: .55rem .7rem;
+    background: rgba(0, 0, 0, .3);
+    border: 1px solid color-mix(in srgb, var(--ink) 32%, transparent); border-radius: 2px;
+    -webkit-user-select: text; user-select: text;
+  }
+  dialog select option { color: #000; }
+  .help { margin: 0; font-family: var(--serif); font-size: .98rem; line-height: 1.5; opacity: .78; }
+  .row { display: flex; gap: .7rem; align-items: center; }
+  .row.end { justify-content: flex-end; }
+  .btn {
+    flex-shrink: 0; min-height: 44px; padding: .5rem 1.15rem;
+    border: 1px solid var(--accent); font-weight: 600; font-size: 1.1rem;
+  }
+  .btn.quiet { border-color: color-mix(in srgb, var(--ink) 35%, transparent); font-weight: 400; }
+  #sp-status { margin: 0; font-family: var(--serif); font-size: 1.05rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #controls { transition: opacity .2s ease; transform: none; opacity: 0; pointer-events: none; }
+    #controls.show { opacity: 1; pointer-events: auto; }
+  }
+</style>
+</head>
+<body class="room-calm">
+
+<section id="lobby" aria-label="Choose a room">
+  <header class="lobby-bar">
+    <p id="status" role="status"></p>
+    <div class="lobby-actions">
+      <button id="connect" class="text-btn" hidden>Connect Spotify</button>
+      <button id="open-settings" class="text-btn">Settings</button>
+    </div>
+  </header>
+  <button class="door door-calm" data-room="calm">
+    <span class="door-name">Calm</span>
+    <span class="door-sub" id="sub-calm"></span>
+  </button>
+  <button class="door door-jazz" data-room="jazz">
+    <span class="door-name">Jazz Club</span>
+    <span class="door-sub" id="sub-jazz"></span>
+  </button>
+</section>
+
+<main id="stage" hidden>
+  <div id="window">
+    <div class="layer" id="layerA"></div>
+    <div class="layer" id="layerB"></div>
+  </div>
+  <div id="margin">
+    <div class="np" id="np"></div>
+    <div class="wall" id="wall" aria-live="polite"></div>
+  </div>
+
+  <div id="controls" role="toolbar" aria-label="Frame controls">
+    <div class="group rooms" role="group" aria-label="Room">
+      <button data-room="calm" aria-pressed="true">Calm</button>
+      <button data-room="jazz" aria-pressed="false">Jazz Club</button>
+    </div>
+    <div class="group transport">
+      <button id="prev" class="icon-btn" aria-label="Previous song">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9.5 12z"/></svg>
+      </button>
+      <button id="play" class="icon-btn" aria-label="Play"></button>
+      <button id="next" class="icon-btn" aria-label="Next song">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l10.5-7z"/></svg>
+      </button>
+    </div>
+    <div class="group sleep" role="group" aria-labelledby="sleep-label">
+      <span class="sleep-label" id="sleep-label">Sleep</span>
+      <button data-sleep="off" aria-pressed="true">Off</button>
+      <button data-sleep="15" aria-pressed="false">15 min</button>
+      <button data-sleep="30" aria-pressed="false">30 min</button>
+      <button data-sleep="60" aria-pressed="false">60 min</button>
+      <button data-sleep="song" aria-pressed="false">End of song</button>
+    </div>
+    <div class="group">
+      <button id="new-art" class="icon-btn" aria-label="New artwork">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="4.5" width="17" height="15"/><path d="M3.5 16l5-5 4 4 3-3 5 5"/><circle cx="15.5" cy="8.5" r="1.4"/></svg>
+      </button>
+      <button id="full" class="icon-btn" aria-label="Full screen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+      </button>
+      <button id="gear" class="icon-btn" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/></svg>
+      </button>
+    </div>
+  </div>
+</main>
+
+<div id="notice" role="alert"></div>
+
+<dialog id="settings" aria-labelledby="settings-title">
+  <form method="dialog" id="settings-form">
+    <h2 id="settings-title">Settings</h2>
+
+    <section>
+      <h3>Spotify</h3>
+      <p id="sp-status"></p>
+      <div class="row">
+        <button type="button" id="sp-connect" class="btn">Connect Spotify</button>
+        <button type="button" id="sp-signout" class="btn quiet">Sign out</button>
+      </div>
+      <label for="clientId">Client ID</label>
+      <input id="clientId" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <p class="help">Create an app at developer.spotify.com/dashboard, then paste its Client ID here.</p>
+      <label for="redirect">Redirect URI</label>
+      <div class="row">
+        <input id="redirect" readonly>
+        <button type="button" id="copy-redirect" class="btn quiet">Copy</button>
+      </div>
+      <p class="help">Add this exact address to your Spotify app’s Redirect URIs.</p>
+    </section>
+
+    <section>
+      <h3>Playlists</h3>
+      <p class="help" id="pl-status"></p>
+      <label for="pl-calm">Calm</label>
+      <select id="pl-calm"></select>
+      <input id="link-calm" placeholder="Or paste a Spotify playlist or album link" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label for="pl-jazz">Jazz Club</label>
+      <select id="pl-jazz"></select>
+      <input id="link-jazz" placeholder="Or paste a Spotify playlist or album link" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </section>
+
+    <section>
+      <h3>Artwork</h3>
+      <label for="cadence">Change the artwork</label>
+      <select id="cadence">
+        <option value="song">With each song</option>
+        <option value="300">Every 5 minutes</option>
+        <option value="900">Every 15 minutes</option>
+      </select>
+      <p class="help">The art comes from the Art Institute of Chicago’s public-domain collection.</p>
+    </section>
+
+    <div class="row end">
+      <button type="button" id="cancel" class="btn quiet">Cancel</button>
+      <button value="save" class="btn">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  // ---------- Storage (fails quietly in private browsing) ----------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('gh.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('gh.' + k, JSON.stringify(v)); } catch (e) {} },
+    del(k) { try { localStorage.removeItem('gh.' + k); } catch (e) {} }
+  };
+
+  // ".../gallery-hours/" and ".../gallery-hours/index.html" both use the folder address,
+  // so one Redirect URI in the Spotify dashboard covers either way of opening the page
+  const REDIRECT = location.origin + location.pathname.replace(/index\.html$/, '');
+  const SCOPES = [
+    'streaming', 'user-read-email', 'user-read-private',
+    'user-read-playback-state', 'user-modify-playback-state',
+    'playlist-read-private', 'playlist-read-collaborative'
+  ].join(' ');
+
+  const ROOMS = {
+    calm: {
+      name: 'Calm',
+      art: ['Hiroshige', 'Hokusai', 'seascape', 'river landscape', 'moonlight', 'snow landscape',
+            'garden', 'clouds', 'lake', 'meadow', 'harbor', 'mist'],
+      fallbackSearch: 'calm ambient sleep'
+    },
+    jazz: {
+      name: 'Jazz Club',
+      art: ['night cafe', 'cabaret', 'dance hall', 'musician', 'jazz', 'street at night',
+            'Toulouse-Lautrec', 'bar', 'nocturne', 'theater', 'Paris night', 'saxophone'],
+      fallbackSearch: 'late night jazz club'
+    }
+  };
+  const ART_TYPES = new Set(['Painting', 'Print', 'Drawing and Watercolor', 'Photograph']);
+
+  const blankRooms = () => ({ calm: { uri: '', name: '' }, jazz: { uri: '', name: '' } });
+  let cfg = Object.assign({ clientId: '', cadence: 'song' }, store.get('cfg', {}));
+  cfg.rooms = Object.assign(blankRooms(), cfg.rooms || {});
+  let tokens = store.get('tokens', null);
+
+  const S = {
+    room: null,
+    player: null, deviceId: null, playerReady: false, userName: '',
+    playing: false, track: null, position: 0, duration: 0, stateAt: 0,
+    volume: 0.6,
+    defaults: {},
+    sleep: { mode: 'off', endAt: 0, timer: null, armedUri: null },
+    asleep: false,
+    wakeLock: null, hideTimer: null,
+    art: {
+      pools: { calm: [], jazz: [] },
+      used: { calm: new Set(), jazz: new Set() },
+      queries: { calm: [], jazz: [] },
+      fetching: { calm: null, jazz: null },
+      iiif: 'https://www.artic.edu/iiif/2',
+      front: 0, timer: null
+    }
+  };
+  const musicOn = () => !!(tokens && S.playerReady && S.deviceId);
+
+  // ---------- Notice ----------
+  let noticeTimer;
+  function notice(msg, ms = 6500) {
+    const n = $('#notice');
+    n.textContent = msg;
+    n.classList.add('show');
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => n.classList.remove('show'), ms);
+  }
+
+  // ---------- Spotify sign-in (PKCE, no server needed) ----------
+  const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  async function login() {
+    if (!cfg.clientId) { notice('Add your Spotify Client ID in settings first.'); openSettings(); return; }
+    if (!window.crypto || !crypto.subtle) { notice('Spotify sign-in needs a secure (https) page.'); return; }
+    const verifier = b64url(crypto.getRandomValues(new Uint8Array(64)));
+    const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+    const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
+    store.set('pkce', { verifier, state });
+    const p = new URLSearchParams({
+      response_type: 'code', client_id: cfg.clientId, scope: SCOPES,
+      redirect_uri: REDIRECT, code_challenge_method: 'S256', code_challenge: challenge, state
+    });
+    location.href = 'https://accounts.spotify.com/authorize?' + p;
+  }
+
+  async function handleRedirect() {
+    const q = new URLSearchParams(location.search);
+    if (!q.has('code') && !q.has('error')) return;
+    history.replaceState(null, '', REDIRECT);
+    if (q.get('error')) {
+      notice(q.get('error') === 'access_denied' ? 'Spotify connection was cancelled.' : 'Spotify sign-in failed: ' + q.get('error'));
+      return;
+    }
+    const pk = store.get('pkce', null);
+    store.del('pkce');
+    if (!pk || pk.state !== q.get('state')) { notice('That Spotify sign-in didn’t start from this page. Tap Connect Spotify again.'); return; }
+    try {
+      await tokenRequest({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: REDIRECT, client_id: cfg.clientId, code_verifier: pk.verifier });
+    } catch (e) { notice('Spotify sign-in failed: ' + e.message); }
+  }
+
+  async function tokenRequest(params) {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(params)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const e = new Error(j.error_description || j.error || ('HTTP ' + r.status));
+      e.code = j.error;
+      throw e;
+    }
+    tokens = {
+      access: j.access_token,
+      refresh: j.refresh_token || (tokens && tokens.refresh),
+      expiresAt: Date.now() + (j.expires_in || 3600) * 1000
+    };
+    store.set('tokens', tokens);
+    return tokens.access;
+  }
+
+  let refreshing = null;
+  async function getToken(force) {
+    if (!tokens) throw new Error('Not connected to Spotify');
+    if (!force && Date.now() < tokens.expiresAt - 60000) return tokens.access;
+    if (!tokens.refresh) { expired(); throw new Error('Spotify login expired'); }
+    if (!refreshing) {
+      refreshing = tokenRequest({ grant_type: 'refresh_token', refresh_token: tokens.refresh, client_id: cfg.clientId })
+        .catch(e => { if (e.code === 'invalid_grant' || e.code === 'invalid_client') expired(); throw e; })
+        .finally(() => { refreshing = null; });
+    }
+    return refreshing;
+  }
+
+  function expired() {
+    signOut();
+    notice('Your Spotify login expired. Connect Spotify again.');
+  }
+
+  function signOut() {
+    tokens = null;
+    store.del('tokens');
+    if (S.player) { try { S.player.disconnect(); } catch (e) {} S.player = null; }
+    S.deviceId = null; S.playerReady = false; S.userName = ''; S.track = null; S.playing = false;
+    renderAll();
+  }
+
+  async function api(path, opts = {}, retried) {
+    const token = await getToken();
+    const r = await fetch('https://api.spotify.com/v1' + path, {
+      ...opts,
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...(opts.headers || {}) }
+    });
+    if (r.status === 401 && !retried) { await getToken(true); return api(path, opts, true); }
+    if (r.status === 204 || r.status === 202) return null;
+    if (!r.ok) {
+      let msg = '';
+      try { msg = (await r.json()).error.message; } catch (e) {}
+      const e = new Error(msg || ('HTTP ' + r.status));
+      e.status = r.status;
+      throw e;
+    }
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
+  }
+
+  // ---------- Spotify player (Web Playback SDK) ----------
+  function loadSdk() {
+    if (window.Spotify) { initPlayer(); return; }
+    if ($('#sdk')) return;
+    window.onSpotifyWebPlaybackSDKReady = initPlayer;
+    const s = document.createElement('script');
+    s.id = 'sdk';
+    s.src = 'https://sdk.scdn.co/spotify-player.js';
+    s.onerror = () => notice('Spotify’s player didn’t load. Check your connection, then reload the page.');
+    document.head.appendChild(s);
+  }
+
+  function initPlayer() {
+    if (S.player || !tokens) return;
+    const p = new Spotify.Player({
+      name: 'Gallery Hours',
+      volume: S.volume,
+      getOAuthToken: cb => { getToken().then(cb).catch(() => {}); }
+    });
+    p.addListener('ready', ({ device_id }) => { S.deviceId = device_id; S.playerReady = true; renderAll(); });
+    p.addListener('not_ready', () => { S.playerReady = false; renderAll(); });
+    p.addListener('initialization_error', ({ message }) => notice('This browser can’t play Spotify: ' + message));
+    p.addListener('authentication_error', () => expired());
+    p.addListener('account_error', () => notice('Spotify says this account can’t stream here. Web playback needs Spotify Premium.'));
+    p.addListener('playback_error', ({ message }) => notice('Spotify couldn’t play that: ' + message));
+    p.addListener('autoplay_failed', () => { S.playing = false; renderTransport(); showControls(); notice('Tap play to start the music.'); });
+    p.addListener('player_state_changed', onPlayerState);
+    p.connect();
+    S.player = p;
+  }
+
+  function onPlayerState(st) {
+    if (!st) return;
+    S.playing = !st.paused;
+    S.position = st.position;
+    S.duration = st.duration;
+    S.stateAt = performance.now();
+    const t = st.track_window && st.track_window.current_track;
+    if (t && (!S.track || S.track.uri !== t.uri)) {
+      const first = !S.track;
+      S.track = { uri: t.uri, name: t.name, artists: (t.artists || []).map(a => a.name).join(', ') };
+      renderTrack();
+      if (S.sleep.mode === 'song') {
+        if (!S.sleep.armedUri) S.sleep.armedUri = t.uri;
+        else if (S.sleep.armedUri !== t.uri) { goToSleep(); return; }
+      }
+      if (!first && cfg.cadence === 'song') nextArt();
+    }
+    renderTransport();
+  }
+
+  async function startMusic(room) {
+    if (!musicOn()) return;
+    let uri = cfg.rooms[room].uri;
+    if (!uri) {
+      uri = await findDefault(room);
+      if (!uri) { notice(`Pick a ${ROOMS[room].name} playlist in settings to hear music.`); return; }
+    }
+    const play = () => api(`/me/player/play?device_id=${S.deviceId}`, { method: 'PUT', body: JSON.stringify({ context_uri: uri }) });
+    try {
+      await play();
+    } catch (e) {
+      if (e.status === 404) {
+        // The browser player isn't registered yet: hand playback to it, then try again
+        try {
+          await api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [S.deviceId], play: false }) });
+          await wait(900);
+          await play();
+        } catch (e2) { notice('Spotify couldn’t start the music: ' + e2.message); return; }
+      } else if (e.status === 403) {
+        notice('Spotify refused to play here. Web playback needs Spotify Premium.'); return;
+      } else {
+        notice('Spotify couldn’t start the music: ' + e.message); return;
+      }
+    }
+    api(`/me/player/shuffle?state=true&device_id=${S.deviceId}`, { method: 'PUT' }).catch(() => {});
+  }
+
+  async function findDefault(room) {
+    if (S.defaults[room]) return S.defaults[room].uri;
+    try {
+      const q = encodeURIComponent(ROOMS[room].fallbackSearch);
+      const j = await api(`/search?type=playlist&limit=5&q=${q}`);
+      const pl = ((j && j.playlists && j.playlists.items) || []).find(Boolean);
+      if (!pl) return '';
+      S.defaults[room] = { uri: pl.uri, name: pl.name };
+      notice(`Playing “${pl.name}” from Spotify. Choose your own ${ROOMS[room].name} playlist in settings.`);
+      return pl.uri;
+    } catch (e) { return ''; }
+  }
+
+  // ---------- Artwork (Art Institute of Chicago, public domain) ----------
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+
+  async function fetchArt(room) {
+    const A = S.art;
+    if (!A.queries[room].length) { A.queries[room] = shuffle([...ROOMS[room].art]); A.used[room].clear(); }
+    const q = A.queries[room].shift();
+    const params = {
+      q,
+      query: { bool: { filter: [{ term: { is_public_domain: true } }] } },
+      fields: ['id', 'title', 'artist_title', 'date_display', 'image_id', 'thumbnail', 'artwork_type_title'],
+      limit: 50
+    };
+    const r = await fetch('https://api.artic.edu/api/v1/artworks/search?params=' + encodeURIComponent(JSON.stringify(params)));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (j.config && j.config.iiif_url) A.iiif = j.config.iiif_url;
+    const pool = A.pools[room];
+    const have = new Set(pool.map(p => p.id));
+    const items = (j.data || [])
+      .filter(d => d.image_id && !A.used[room].has(d.id) && !have.has(d.id))
+      .filter(d => !d.artwork_type_title || ART_TYPES.has(d.artwork_type_title))
+      .map(d => ({
+        id: d.id, title: d.title || 'Untitled', artist: d.artist_title || '', date: d.date_display || '',
+        image: d.image_id,
+        ratio: d.thumbnail && d.thumbnail.width && d.thumbnail.height ? d.thumbnail.width / d.thumbnail.height : 0
+      }))
+      .filter(d => !d.ratio || (d.ratio > 0.45 && d.ratio < 2.6));
+    pool.push(...shuffle(items));
+  }
+
+  async function ensurePool(room) {
+    const A = S.art;
+    for (let i = 0; i < 3 && A.pools[room].length < 4; i++) {
+      if (!A.fetching[room]) A.fetching[room] = fetchArt(room).finally(() => { A.fetching[room] = null; });
+      try { await A.fetching[room]; } catch (e) { if (!A.pools[room].length) throw e; break; }
+      if (A.pools[room].length < 4) await wait(1100); // be polite to the museum's API
+    }
+  }
+
+  function pickNext(room) {
+    const pool = S.art.pools[room];
+    if (!pool.length) return null;
+    const landscape = innerWidth >= innerHeight;
+    let i = pool.slice(0, 8).findIndex(p => p.ratio && (landscape ? p.ratio >= 1 : p.ratio < 1));
+    if (i < 0) i = 0;
+    return pool.splice(i, 1)[0];
+  }
+
+  function loadImg(src) {
+    return new Promise((res, rej) => {
+      const im = new Image();
+      im.decoding = 'async';
+      im.onload = () => res(im);
+      im.onerror = rej;
+      im.src = src;
+    });
+  }
+
+  let artSeq = 0;
+  async function nextArt() {
+    const room = S.room;
+    if (!room || S.asleep) return;
+    const seq = ++artSeq;
+    for (let tries = 0; tries < 4; tries++) {
+      try { await ensurePool(room); }
+      catch (e) { if (seq === artSeq) { notice('The artwork couldn’t load. Check your connection.'); scheduleArt(); } return; }
+      const item = pickNext(room);
+      if (!item) return;
+      S.art.used[room].add(item.id);
+      let im = null;
+      for (const w of [1686, 843]) {
+        try { im = await loadImg(`${S.art.iiif}/${item.image}/full/${w},/0/default.jpg`); break; } catch (e) {}
+      }
+      if (seq !== artSeq || room !== S.room) return;
+      if (im) { showArt(im, item); ensurePool(room).catch(() => {}); return; }
+    }
+  }
+
+  function showArt(im, item) {
+    const layers = [$('#layerA'), $('#layerB')];
+    const front = layers[S.art.front];
+    const back = layers[S.art.front ^ 1];
+    im.alt = item.title + (item.artist ? ', ' + item.artist : '');
+    im.dataset.ratio = String(im.naturalWidth / im.naturalHeight);
+    back.replaceChildren(im);
+    fitLayer(back);
+    back.classList.add('on');
+    front.classList.remove('on');
+    S.art.front ^= 1;
+    renderWall(item);
+    scheduleArt();
+  }
+
+  function fitLayer(layer) {
+    const im = layer.querySelector('img');
+    if (!im) return;
+    const w = layer.clientWidth, h = layer.clientHeight, r = parseFloat(im.dataset.ratio) || 1;
+    let iw = w, ih = w / r;
+    if (ih > h) { ih = h; iw = h * r; }
+    Object.assign(im.style, {
+      width: Math.round(iw) + 'px', height: Math.round(ih) + 'px',
+      left: Math.round((w - iw) / 2) + 'px', top: Math.round((h - ih) / 2) + 'px'
+    });
+  }
+
+  function scheduleArt() {
+    clearTimeout(S.art.timer);
+    let ms;
+    if (cfg.cadence !== 'song') ms = (+cfg.cadence) * 1000;
+    else ms = musicOn() ? 8 * 60 * 1000 : 60 * 1000; // a safety net for very long tracks; once a minute with no music
+    S.art.timer = setTimeout(() => nextArt(), ms);
+  }
+
+  // ---------- Rooms ----------
+  function enterRoom(room) {
+    // iOS only allows audio to start from a tap, so wake the player before anything async
+    let activation = null;
+    if (musicOn() && S.player.activateElement) { try { activation = S.player.activateElement(); } catch (e) {} }
+
+    const changed = room !== S.room;
+    S.room = room;
+    document.body.classList.toggle('room-jazz', room === 'jazz');
+    document.body.classList.toggle('room-calm', room === 'calm');
+    $('#lobby').hidden = true;
+    $('#stage').hidden = false;
+    if (S.asleep) wake();
+    requestWake();
+    if (changed) {
+      S.track = null;
+      if (S.sleep.mode === 'song') S.sleep.armedUri = null;
+      renderTrack();
+      nextArt();
+    }
+    renderAll();
+    showControls();
+
+    if (musicOn()) Promise.resolve(activation).catch(() => {}).finally(() => startMusic(room));
+    else if (tokens) notice('Spotify is still connecting. Tap play in a moment.');
+  }
+
+  // ---------- Sleep timer ----------
+  const FADE_MS = 3 * 60 * 1000;
+  const SONG_FADE_MS = 25 * 1000;
+
+  function setSleep(mode) {
+    clearInterval(S.sleep.timer);
+    S.sleep = { mode, endAt: 0, timer: null, armedUri: null };
+    setLevels(1);
+    if (mode !== 'off') {
+      if (mode === 'song') S.sleep.armedUri = S.track ? S.track.uri : null;
+      else S.sleep.endAt = Date.now() + (+mode) * 60000;
+      S.sleep.timer = setInterval(tickSleep, 1000);
+      tickSleep();
+    }
+    renderSleep();
+  }
+
+  function remainingMs() {
+    if (S.sleep.mode === 'song') {
+      if (!S.duration) return Infinity;
+      const pos = S.position + (S.playing ? performance.now() - S.stateAt : 0);
+      return Math.max(0, S.duration - pos);
+    }
+    return Math.max(0, S.sleep.endAt - Date.now());
+  }
+
+  function tickSleep() {
+    const rem = remainingMs();
+    const song = S.sleep.mode === 'song';
+    if (rem <= (song ? 1200 : 0)) { goToSleep(); return; }
+    const fadeLen = song ? SONG_FADE_MS : FADE_MS;
+    setLevels(rem < fadeLen ? rem / fadeLen : 1);
+    renderSleep(rem);
+  }
+
+  let lastVol = -1;
+  function setLevels(k) {
+    document.documentElement.style.setProperty('--dim', String(0.22 + 0.78 * k));
+    const v = Math.round(S.volume * Math.max(k, 0.04) * 100) / 100;
+    // Some iPads ignore volume changes from web pages; the stop at the end still happens
+    if (S.player && v !== lastVol) { lastVol = v; S.player.setVolume(v).catch(() => {}); }
+  }
+
+  function goToSleep() {
+    clearInterval(S.sleep.timer);
+    clearTimeout(S.art.timer);
+    S.sleep = { mode: 'off', endAt: 0, timer: null, armedUri: null };
+    S.asleep = true;
+    if (S.player && musicOn()) S.player.pause().catch(() => {});
+    document.body.classList.add('asleep');
+    hideControls();
+    releaseWake(); // the iPad's own Auto-Lock takes it from here
+    setTimeout(() => { if (S.asleep && S.player) { lastVol = -1; S.player.setVolume(S.volume).catch(() => {}); } }, 4000);
+    renderSleep();
+  }
+
+  function wake() {
+    S.asleep = false;
+    document.body.classList.remove('asleep');
+    setLevels(1);
+    requestWake();
+    scheduleArt();
+  }
+
+  // ---------- Keep the screen on while a room is open ----------
+  async function requestWake() {
+    if (!('wakeLock' in navigator) || S.asleep || S.wakeLock) return;
+    try {
+      const lock = await navigator.wakeLock.request('screen');
+      S.wakeLock = lock;
+      lock.addEventListener('release', () => { if (S.wakeLock === lock) S.wakeLock = null; });
+    } catch (e) {}
+  }
+  function releaseWake() {
+    if (S.wakeLock) { const l = S.wakeLock; S.wakeLock = null; l.release().catch(() => {}); }
+  }
+
+  // ---------- Controls ----------
+  function showControls() { $('#controls').classList.add('show'); armHide(); }
+  function hideControls() { $('#controls').classList.remove('show'); clearTimeout(S.hideTimer); }
+  function armHide() { clearTimeout(S.hideTimer); S.hideTimer = setTimeout(hideControls, 7000); }
+
+  function togglePlay() {
+    if (!musicOn()) { if (tokens) notice('Spotify is still connecting.'); return; }
+    if (!S.track) { startMusic(S.room); return; }
+    S.player.togglePlay().catch(() => {});
+  }
+
+  function toggleFullscreen() {
+    const d = document, el = d.documentElement;
+    if (d.fullscreenElement || d.webkitFullscreenElement) {
+      (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    } else {
+      const f = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (f) Promise.resolve(f.call(el)).catch(() => notice('Full screen isn’t available here.'));
+    }
+  }
+
+  // ---------- Settings ----------
+  function parseLink(s) {
+    const m = s.match(/(playlist|album)[\/:]([A-Za-z0-9]{22})/);
+    return m ? `spotify:${m[1]}:${m[2]}` : '';
+  }
+
+  function fillSelect(room, lists) {
+    const sel = $('#pl-' + room);
+    const cur = cfg.rooms[room];
+    sel.replaceChildren();
+    const add = (value, text) => { const o = document.createElement('option'); o.value = value; o.textContent = text; sel.appendChild(o); return o; };
+    add('', lists.length ? 'Choose a playlist' : (tokens ? 'Loading your playlists' : 'Connect Spotify to see your playlists'));
+    if (cur.uri && !lists.some(l => l.uri === cur.uri)) add(cur.uri, cur.name || 'Saved link');
+    lists.forEach(l => add(l.uri, l.name));
+    sel.value = cur.uri || '';
+  }
+
+  async function loadPlaylists() {
+    const status = $('#pl-status');
+    status.textContent = '';
+    if (!tokens) { status.textContent = 'Connect Spotify to choose from your playlists, or paste a link.'; return; }
+    try {
+      const all = [];
+      let path = '/me/playlists?limit=50';
+      for (let i = 0; i < 4 && path; i++) {
+        let j;
+        try { j = await api(path); }
+        catch (e) { if (e.status === 400 && i === 0) j = await api(path = '/me/playlists?limit=10'); else throw e; }
+        (j.items || []).forEach(p => p && all.push({ uri: p.uri, name: p.name }));
+        path = j.next ? j.next.replace('https://api.spotify.com/v1', '') : null;
+      }
+      ['calm', 'jazz'].forEach(r => fillSelect(r, all));
+      if (!all.length) status.textContent = 'No playlists found in your library. Paste a playlist or album link instead.';
+    } catch (e) {
+      status.textContent = 'Your playlists couldn’t load (' + e.message + '). You can still paste a link.';
+      ['calm', 'jazz'].forEach(r => fillSelect(r, []));
+    }
+  }
+
+  function openSettings() {
+    $('#clientId').value = cfg.clientId;
+    $('#redirect').value = REDIRECT;
+    $('#cadence').value = cfg.cadence;
+    $('#link-calm').value = '';
+    $('#link-jazz').value = '';
+    ['calm', 'jazz'].forEach(r => fillSelect(r, []));
+    renderStatus();
+    clearTimeout(S.hideTimer);
+    $('#settings').showModal();
+    loadPlaylists();
+  }
+
+  function saveClientId() {
+    const id = $('#clientId').value.trim();
+    if (id !== cfg.clientId) {
+      cfg.clientId = id;
+      store.set('cfg', cfg);
+      if (tokens) signOut();
+    }
+  }
+
+  async function lookupName(room, uri) {
+    const [, type, id] = uri.split(':');
+    try {
+      const j = await api(type === 'album' ? `/albums/${id}` : `/playlists/${id}?fields=name`);
+      if (j && j.name && cfg.rooms[room].uri === uri) { cfg.rooms[room].name = j.name; store.set('cfg', cfg); renderAll(); }
+    } catch (e) {}
+  }
+
+  function saveSettings() {
+    saveClientId();
+    ['calm', 'jazz'].forEach(r => {
+      const link = $('#link-' + r).value.trim();
+      const sel = $('#pl-' + r);
+      if (link) {
+        const uri = parseLink(link);
+        if (uri) { cfg.rooms[r] = { uri, name: 'Pasted link' }; if (tokens) lookupName(r, uri); }
+        else notice(`That ${ROOMS[r].name} link isn’t a Spotify playlist or album link.`);
+      } else if (sel.value && sel.value !== cfg.rooms[r].uri) {
+        cfg.rooms[r] = { uri: sel.value, name: sel.selectedOptions[0].textContent };
+      }
+    });
+    const cadenceChanged = cfg.cadence !== $('#cadence').value;
+    cfg.cadence = $('#cadence').value;
+    store.set('cfg', cfg);
+    if (cadenceChanged && S.room) scheduleArt();
+    renderAll();
+  }
+
+  // ---------- Rendering ----------
+  function statusText() {
+    if (!cfg.clientId) return 'Music is off. Add your Spotify Client ID in settings to play music. The rooms still show art.';
+    if (!tokens) return 'Music is off. Connect Spotify to play music. The rooms still show art.';
+    if (!S.playerReady) return 'Connecting to Spotify…';
+    return S.userName ? `Connected to Spotify as ${S.userName}.` : 'Connected to Spotify.';
+  }
+
+  function renderStatus() {
+    $('#status').textContent = statusText();
+    $('#sp-status').textContent = statusText();
+    $('#connect').hidden = !cfg.clientId || !!tokens;
+    $('#sp-connect').hidden = !!tokens;
+    $('#sp-signout').hidden = !tokens;
+  }
+
+  function renderDoors() {
+    ['calm', 'jazz'].forEach(r => {
+      const pl = cfg.rooms[r];
+      let t;
+      if (!tokens) t = 'Art only for now';
+      else if (pl.uri) t = pl.name || 'Your playlist';
+      else t = 'Pick a playlist in settings';
+      $('#sub-' + r).textContent = t;
+    });
+  }
+
+  function renderTrack() {
+    const np = $('#np');
+    np.replaceChildren();
+    np.classList.toggle('has-track', !!S.track);
+    if (S.track) {
+      const t = document.createElement('div'); t.className = 'np-title'; t.textContent = S.track.name;
+      const a = document.createElement('div'); a.className = 'np-artist'; a.textContent = S.track.artists;
+      np.append(t, a);
+    }
+    const sl = document.createElement('div'); sl.className = 'np-sleep'; sl.id = 'np-sleep'; sl.hidden = true;
+    np.append(sl);
+    renderSleep();
+  }
+
+  function renderWall(item) {
+    const w = $('#wall');
+    const t = document.createElement('div'); t.className = 'wall-title'; t.textContent = item.title;
+    const m = document.createElement('div'); m.className = 'wall-meta';
+    m.textContent = [item.artist, item.date].filter(Boolean).join(', ');
+    w.replaceChildren(t, m);
+  }
+
+  function renderSleep(rem) {
+    $$('[data-sleep]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sleep === S.sleep.mode)));
+    const songBtn = $('[data-sleep="song"]');
+    songBtn.disabled = !musicOn();
+    const el = $('#np-sleep');
+    if (!el) return;
+    if (S.sleep.mode === 'off') { el.hidden = true; return; }
+    el.hidden = false;
+    if (S.sleep.mode === 'song') { el.textContent = 'Sleeping after this song'; return; }
+    const m = Math.ceil((rem === undefined ? remainingMs() : rem) / 60000);
+    el.textContent = m <= 1 ? 'Sleeping in under a minute' : `Sleeping in ${m} min`;
+  }
+
+  const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  const ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
+  function renderTransport() {
+    const on = musicOn();
+    $('#play').hidden = !on;
+    $('#prev').hidden = !on;
+    $('#next').hidden = !on;
+    $('#play').innerHTML = S.playing ? ICON_PAUSE : ICON_PLAY;
+    $('#play').setAttribute('aria-label', S.playing ? 'Pause' : 'Play');
+  }
+
+  function renderRoomToggle() {
+    $$('.rooms [data-room]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.room === S.room)));
+  }
+
+  function renderAll() {
+    renderStatus(); renderDoors(); renderTransport(); renderRoomToggle(); renderSleep();
+  }
+
+  // ---------- Events ----------
+  function bind() {
+    $$('.door').forEach(b => b.addEventListener('click', () => enterRoom(b.dataset.room)));
+    $('#connect').addEventListener('click', login);
+    $('#open-settings').addEventListener('click', openSettings);
+
+    $('#stage').addEventListener('click', e => {
+      if (S.asleep) { wake(); showControls(); return; }
+      if (e.target.closest('#controls')) { armHide(); return; }
+      const c = $('#controls');
+      c.classList.contains('show') ? hideControls() : showControls();
+    });
+
+    $$('.rooms [data-room]').forEach(b => b.addEventListener('click', () => enterRoom(b.dataset.room)));
+    $('#play').addEventListener('click', togglePlay);
+    $('#next').addEventListener('click', () => S.player && S.player.nextTrack().catch(() => {}));
+    $('#prev').addEventListener('click', () => S.player && S.player.previousTrack().catch(() => {}));
+    $$('[data-sleep]').forEach(b => b.addEventListener('click', () => setSleep(b.dataset.sleep)));
+    $('#new-art').addEventListener('click', () => nextArt());
+    $('#gear').addEventListener('click', openSettings);
+
+    const canFull = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+    $('#full').hidden = !canFull;
+    $('#full').addEventListener('click', toggleFullscreen);
+
+    $('#settings-form').addEventListener('submit', saveSettings);
+    $('#cancel').addEventListener('click', () => $('#settings').close());
+    $('#settings').addEventListener('close', () => { if (S.room) armHide(); });
+    $('#sp-connect').addEventListener('click', () => { saveClientId(); login(); });
+    $('#sp-signout').addEventListener('click', () => { signOut(); loadPlaylists(); });
+    $('#copy-redirect').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(REDIRECT); $('#copy-redirect').textContent = 'Copied'; }
+      catch (e) { $('#redirect').select(); }
+      setTimeout(() => { $('#copy-redirect').textContent = 'Copy'; }, 2000);
+    });
+
+    addEventListener('resize', () => { fitLayer($('#layerA')); fitLayer($('#layerB')); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && S.room && !S.asleep) requestWake();
+    });
+    document.addEventListener('keydown', e => {
+      if ($('#settings').open || !S.room) return;
+      if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+      else if (e.key === 'ArrowRight' && musicOn()) S.player.nextTrack().catch(() => {});
+      else if (e.key === 'ArrowLeft' && musicOn()) S.player.previousTrack().catch(() => {});
+      else if (e.key === 'f') toggleFullscreen();
+    });
+  }
+
+  async function init() {
+    bind();
+    await handleRedirect();
+    renderAll();
+    renderTrack();
+    if (tokens) {
+      loadSdk();
+      api('/me').then(me => { S.userName = (me && me.display_name) || ''; renderStatus(); }).catch(() => {});
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
